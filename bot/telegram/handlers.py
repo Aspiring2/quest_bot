@@ -18,6 +18,11 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         defaults={'username': username, 'coins': 0}
     )
 
+    # Обнуление баланса монет
+    if not created:  # Если пользователь уже существовал
+        user.coins = 0
+        await sync_to_async(user.save)()
+
     # Получение первой локации
     first_location = await sync_to_async(Location.objects.order_by('order').first)()
     if first_location:
@@ -110,13 +115,18 @@ async def process_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     task = await sync_to_async(Task.objects.get)(id=task_id)
     user_answer = update.message.text.strip().lower()  # Приводим ответ пользователя к нижнему регистру
+    correct_answer = task.answer.lower()  # Приводим правильный ответ к нижнему регистру
 
-    if user_answer == task.answer.lower():  # Сравниваем с правильным ответом
+    # Проверяем совпадение ключевой части ответа
+    if correct_answer in user_answer or user_answer in correct_answer:
         # Увеличиваем баланс монет
         user.coins += task.reward
         await sync_to_async(user.save)()
 
-        response = f"Правильно! Вы получили {task.reward} монет.\nВаш баланс: {user.coins} монет."
+        response = (
+            f"✅ *Правильно!* Вы получили `{task.reward}` монет 🪙\n"
+            f"💎 *Ваш баланс*: `{user.coins}` монет 🪙"
+        )
 
         # Переход к следующей задаче
         next_task = await sync_to_async(
@@ -125,10 +135,10 @@ async def process_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if next_task:
             context.user_data['current_task_id'] = next_task.id
-            response += f"\n\n{next_task.text}"
+            response += f"\n\n🔍 *Следующая задача*: _{next_task.text}_"
 
             # Отправка сообщения с текстом задачи
-            await update.message.reply_text(response)
+            await update.message.reply_text(response, parse_mode=ParseMode.MARKDOWN)
 
             # Отправка изображения задачи, если оно есть
             if next_task.image:
@@ -139,7 +149,7 @@ async def process_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             # Кнопка для подсказки
             keyboard = [
-                [InlineKeyboardButton("Подсказка", callback_data=f"hint_{next_task.id}")],
+                [InlineKeyboardButton("💡 Подсказка", callback_data=f"hint_{next_task.id}")],
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -148,17 +158,16 @@ async def process_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             # Завершение локации
             del context.user_data['current_task_id']  # Удаляем текущую задачу из контекста
-            response += "\n\nВы завершили все задачи в этой локации!"
+            response += "\n\n🏁 *Вы завершили все задачи в этой локации!*"
             keyboard = [
-                [InlineKeyboardButton("Я на месте", callback_data=f"finish_location_{task.location.id}")],
+                [InlineKeyboardButton("🚩 Я на месте", callback_data=f"finish_location_{task.location.id}")],
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
-            await update.message.reply_text(response, reply_markup=reply_markup)
+            await update.message.reply_text(response, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
     else:
         # Неправильный ответ
-        response = "Неправильно. Попробуйте ещё раз."
-        await update.message.reply_text(response)
-
+        response = "❌ *Неправильно.* Попробуйте ещё раз."
+        await update.message.reply_text(response, parse_mode=ParseMode.MARKDOWN)
 
 async def show_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
