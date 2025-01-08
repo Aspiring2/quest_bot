@@ -234,6 +234,10 @@ async def finish_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_telegram_id = query.from_user.id
     user = await sync_to_async(User.objects.get)(telegram_id=user_telegram_id)
 
+    # Удаляем потенциально проблемные символы
+    location_name = location.name.replace('*', '').replace('_', '').replace('`', '')
+    description = location.description.replace('*', '').replace('_', '').replace('`', '')
+
     # Начисление монет за завершение локации
     user.coins += location.hint_cost
     await sync_to_async(user.save)()
@@ -244,11 +248,14 @@ async def finish_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )()
 
     if next_location:
+        next_location_name = next_location.name.replace('*', '').replace('_', '').replace('`', '')
+        next_description = next_location.description.replace('*', '').replace('_', '').replace('`', '')
+
         response = (
-            f"🎉 *Вы успешно завершили локацию*: _{location.name}_! 🏁\n\n"
+            f"🎉 *Вы успешно завершили локацию*: _{location_name}_! 🏁\n\n"
             f"💰 *Награда*: `{location.hint_cost}` монет 🪙\n"
             f"💎 *Ваш текущий баланс*: `{user.coins}` монет 🪙\n\n"
-            f"📖 *_{next_location.description}_"
+            f"📖 *{next_description}*"
         )
 
         # Кнопка для начала следующей локации
@@ -261,7 +268,7 @@ async def finish_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text(response, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
     else:
         response = (
-            f"🎉 *Вы успешно завершили локацию*: _{location.name}_! 🏁\n\n"
+            f"🎉 *Вы успешно завершили локацию*: _{location_name}_! 🏁\n\n"
             f"💰 *Награда*: `{location.hint_cost}` монет 🪙\n"
             f"💎 *Ваш текущий баланс*: `{user.coins}` монет 🪙\n\n"
             f"🎊 *Поздравляем, вы завершили весь квест!* 🏆"

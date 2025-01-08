@@ -17,6 +17,8 @@ COPY . /app/
 
 # Expose port
 EXPOSE 8000
+# Установка gunicorn
+RUN pip install gunicorn
 
 # Command to run the app
 CMD ["gunicorn", "questbot.wsgi:application", "--bind", "0.0.0.0:8000"]
